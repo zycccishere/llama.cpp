@@ -32,7 +32,9 @@ def main(args):
     latent_size = args.image_size // 8
     model = DiT_models[args.model](
         input_size=latent_size,
-        num_classes=args.num_classes
+        num_classes=args.num_classes,
+        use_ggml_linear=args.use_ggml_linear,
+        ggml_threads=args.ggml_threads,
     ).to(device)
     # Auto-download a pre-trained model or load a custom DiT checkpoint from train.py:
     ckpt_path = args.ckpt or f"DiT-XL-2-{args.image_size}x{args.image_size}.pt"
@@ -79,5 +81,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--ckpt", type=str, default=None,
                         help="Optional path to a DiT checkpoint (default: auto-download a pre-trained DiT-XL/2 model).")
+    parser.add_argument("--use-ggml-linear", action="store_true", help="Use ggml-based linear layers for ARM acceleration.")
+    parser.add_argument("--ggml-threads", type=int, default=None, help="Number of threads for ggml linear kernels.")
     args = parser.parse_args()
     main(args)
