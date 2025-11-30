@@ -15,9 +15,24 @@ import numpy as np
 import math
 from timm.models.vision_transformer import PatchEmbed, Attention, Mlp
 
+try:
+    from ggml_linear import GGMLLinear
+except Exception:
+    GGMLLinear = None
+
 
 def modulate(x, shift, scale):
     return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
+
+
+def _replace_linear_with_ggml(module: nn.Module, threads: int | None = None):
+    if GGMLLinear is None:
+        raise RuntimeError("GGMLLinear extension is unavailable; ensure dependencies are met.")
+    for name, child in list(module.named_children()):
+        if isinstance(child, nn.Linear):
+            setattr(module, name, GGMLLinear.from_linear(child, threads=threads))
+        else:
+            _replace_linear_with_ggml(child, threads)
 
 
 #################################################################################
@@ -158,6 +173,8 @@ class DiT(nn.Module):
         class_dropout_prob=0.1,
         num_classes=1000,
         learn_sigma=True,
+        use_ggml_linear=False,
+        ggml_threads=None,
     ):
         super().__init__()
         self.learn_sigma = learn_sigma
@@ -178,6 +195,9 @@ class DiT(nn.Module):
         ])
         self.final_layer = FinalLayer(hidden_size, patch_size, self.out_channels)
         self.initialize_weights()
+
+        if use_ggml_linear:
+            _replace_linear_with_ggml(self, threads=ggml_threads)
 
     def initialize_weights(self):
         # Initialize transformer layers:
